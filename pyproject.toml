@@ -28,5 +28,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]  # "." so `from tests.conftest import ...` resolves under the
+           # console-script entry point, which does not put the cwd on sys.path
 filterwarnings = ["ignore::DeprecationWarning"]
