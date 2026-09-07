@@ -1,0 +1,3 @@
+phenotype,frobenius_RE_minus_RP,mean_offdiag_R_E,mean_offdiag_R_P,corr_of_offdiagonals
+"margin","5.58892","0.281325","0.749579","0.756294"
+"accuracy","6.49489","0.273181","0.753974","0.344806"

@@ -1,0 +1,43 @@
+{
+ "dropped_cells": [],
+ "half_A_items": 18840,
+ "half_B_items": 18842,
+ "n_config": 125,
+ "n_runs_read": 375,
+ "recipes": [
+  "Falcon-with-cc-top-orig-10p",
+  "Falcon-with-cc-top-tulu-10p",
+  "c4",
+  "dclm-baseline",
+  "dclm-baseline-25p-dolma1.7-75p",
+  "dclm-baseline-50p-dolma1.7-50p",
+  "dclm-baseline-75p-dolma1.7-25p",
+  "dclm-baseline-top-10p",
+  "dclm-baseline-top-20p",
+  "dclm-baseline-top-fw-10p",
+  "dclm-baseline-top-fw-3p",
+  "dclm-baseline-top-fw2-7p",
+  "dclm-baseline-top-fw3-7p",
+  "dolma1.6++",
+  "dolma1.7",
+  "dolma1.7-no-code",
+  "dolma1.7-no-flan",
+  "dolma1.7-no-math-no-code",
+  "dolma1.7-no-reddit",
+  "falcon",
+  "falcon-with-cc",
+  "falcon-with-cc-top-10p",
+  "falcon-with-cc-top-20p",
+  "fineweb-edu",
+  "fineweb-pro"
+ ],
+ "sizes": [
+  "150M",
+  "300M",
+  "530M",
+  "750M",
+  "1B"
+ ],
+ "source": "/kaggle/working/runs",
+ "split_seed": 20260101
+}
