@@ -70,3 +70,15 @@ def test_the_structured_models_beat_independence_out_of_sample():
     rows = {r["model"]: r["mse_log_sigma_agg"] for r in bakeoff(pop, MARGIN, seed=0)}
     assert rows["P3"] < rows["P0"]
     assert rows["P1"] < rows["P0"]
+
+
+def test_low_rank_survives_a_trait_with_undefined_correlations():
+    """A negative cross-half variance on one fold gives nan correlations for that
+    trait; the rank-k models must treat it as uncorrelated rather than crash."""
+    from seednoise.baselines import _low_rank
+    R = np.full((4, 4), 0.3); np.fill_diagonal(R, 1.0)
+    R[2, :] = np.nan; R[:, 2] = np.nan
+    C = _low_rank(R, 1)
+    assert np.isfinite(C).all()
+    assert np.allclose(np.diag(C), 1.0)
+    assert abs(C[2, 0]) < 1e-9

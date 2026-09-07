@@ -29,6 +29,11 @@ __all__ = ["BASELINES", "predict_sigma_agg", "observed_sigma_agg", "bakeoff"]
 def _low_rank(R: np.ndarray, rank: int) -> np.ndarray:
     """Best rank-``k`` correlation approximation, renormalised to unit diagonal."""
     R = np.asarray(R, dtype=np.float64)
+    # A trait whose cross-half variance came out negative on this fold has nan
+    # correlations, which eigh cannot take; treat it as uncorrelated, the same
+    # convention predict_sigma_agg applies to the full matrix.
+    R = np.where(np.isfinite(R), R, 0.0)
+    np.fill_diagonal(R, 1.0)
     w, V = np.linalg.eigh(0.5 * (R + R.T))
     order = np.argsort(w)[::-1]
     w, V = np.clip(w[order][:rank], 0.0, None), V[:, order][:, :rank]
