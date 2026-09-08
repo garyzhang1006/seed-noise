@@ -112,11 +112,20 @@ def matched_spec(pop: Population, name: str = MARGIN, gain_sd: float = 0.0,
 
 def run_gain_calibration(pop: Population, grid=GAIN_GRID, n_rep: int = 500,
                          seed: int = 0, matched: bool = True,
-                         default: bool = True, progress=None) -> dict:
-    """N5 across a grid of gains, on the registered spec and on the matched one."""
+                         default: bool = True, include_estimate: bool = True,
+                         progress=None) -> dict:
+    """N5 across a grid of gains, on the registered spec and on the matched one.
+
+    ``include_estimate=False`` leaves the data-driven gain out of the grid, so
+    a long grid can be split over several machines without each of them
+    paying for that point again.
+    """
     est = estimate_gain_sd(pop, MARGIN)
     lam = {p: estimate(pop, p, check=False).lambda_hat for p in (MARGIN, ACCURACY)}
-    points = sorted(set(float(g) for g in grid) | {est["gain_sd"]})
+    points = set(float(g) for g in grid)
+    if include_estimate:
+        points.add(est["gain_sd"])
+    points = sorted(points)
     rows = []
     for g in points:
         if default:

@@ -97,3 +97,11 @@ def test_a_per_trait_boundary_moves_each_trait_level_separately():
     with pytest.raises(ValueError):
         spec.boundary_z = (1.0, 2.0)
         simulate(spec)
+
+
+def test_the_estimated_gain_can_be_left_out_of_the_grid():
+    pop = _pop(rbar=0.1, seed=3)
+    got = run_gain_calibration(pop, grid=(0.02,), n_rep=2, seed=1, matched=False,
+                               include_estimate=False)
+    assert {r["gain_sd"] for r in got["gain"]} == {0.02}
+    assert not any(r["at_estimated_gain"] for r in got["gain"])

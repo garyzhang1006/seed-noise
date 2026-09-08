@@ -218,6 +218,7 @@ def cmd_sensitivity(args):
 
     if "gain" in parts:
         g = run_gain_calibration(pop, grid=args.gain_grid, n_rep=args.n_rep,
+                                 include_estimate=not args.gain_no_estimate,
                                  seed=args.seed, progress=progress)
         write_table(out, "gain_calibration", g["gain"])
         write_json(out, "gain_estimate", g["estimate"])
@@ -429,6 +430,8 @@ def build_parser():
     v.add_argument("--part", nargs="*", choices=["gain", "resplit", "loo"],
                    default=None, help="which checks to run; all by default")
     v.add_argument("--gain-grid", nargs="*", type=float, default=list(GAIN_GRID))
+    v.add_argument("--gain-no-estimate", action="store_true",
+                   help="leave the data-driven gain out of the grid (for split runs)")
     v.add_argument("--n-rep", type=int, default=500)
     v.add_argument("--n-splits", type=int, default=50)
     v.add_argument("--split-seed0", type=int, default=1)
