@@ -46,7 +46,7 @@ class SimSpec:
     item_sd: tuple | None = None             # per-trait sd of eta
     item_df: float = 6.0                     # t degrees of freedom for eta's tails
     item_skew: float = 0.4                   # skew of the per-item difficulty
-    boundary_z: float = -0.385               # standardised location of margin zero
+    boundary_z: float | tuple = -0.385       # standardised location of margin zero, scalar or per trait
     gain_sd: float = 0.0                     # run-level multiplicative gain (N5)
     gain_own_sd: float = 1.0                 # part of the gain covariate that is its own
     batch_offset_sd: float = 0.0             # run-batch additive offset (N6)
@@ -126,6 +126,9 @@ def simulate(spec: SimSpec, halves=None, return_items: bool = False):
                else np.asarray(spec.item_sd, dtype=np.float64))
     if item_sd.shape != (K,):
         raise ValueError(f"item_sd must be ({K},), got {item_sd.shape}")
+    # A per-trait boundary lets a matched simulation put each trait's mean margin
+    # where the data has it, which is what a multiplicative gain acts on.
+    boundary_z = np.broadcast_to(np.asarray(spec.boundary_z, dtype=np.float64), (K,))
 
     # Seed effects: (N, R, K), i.i.d. across runs within a configuration.
     E = (rng.standard_normal((N, R, K)) @ L.T).astype(dt)
@@ -170,7 +173,7 @@ def simulate(spec: SimSpec, halves=None, return_items: bool = False):
         # Per-item difficulty, shared by every run of a configuration.  The
         # boundary sits at zero, so the location sets the trait's accuracy.
         mu = (_skewed_normal(rng, (N, 1, n), spec.item_skew, dt) * item_sd[j]
-              - spec.boundary_z * item_sd[j])
+              - boundary_z[j] * item_sd[j])
         # Run-by-item idiosyncratic noise with heavy tails.
         t = rng.standard_t(spec.item_df, size=(N, R, n)).astype(dt)
         t *= np.float32(item_sd[j] * np.sqrt((spec.item_df - 2.0) / spec.item_df))

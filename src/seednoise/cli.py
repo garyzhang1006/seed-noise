@@ -26,6 +26,7 @@ DEFAULT_RECIPES = None      # None means every recipe in the release
 from seednoise.data.polypythias import FINAL_REVISION as PP_REVISION  # noqa: E402
 from seednoise.data.polypythias import SEEDS as PP_SEEDS  # noqa: E402
 from seednoise.data.polypythias import SIZES as PP_SIZES  # noqa: E402
+from seednoise.experiments.e5_sensitivity import GAIN_GRID  # noqa: E402
 
 
 def _log(msg):
@@ -201,6 +202,64 @@ def cmd_analyze(args):
     return 0
 
 
+def cmd_sensitivity(args):
+    """E5: the gain calibration, the re-splits and the leave-one-out sweep."""
+    from seednoise.build import build_population
+    from seednoise.data.datadecide import TRAITS
+    from seednoise.experiments import (
+        run_gain_calibration, run_leave_one_out, run_resplit,
+    )
+
+    pop, source = _population(args)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    parts = set(args.part or ("gain", "resplit", "loo"))
+    progress = None if args.quiet else True
+
+    if "gain" in parts:
+        g = run_gain_calibration(pop, grid=args.gain_grid, n_rep=args.n_rep,
+                                 seed=args.seed, progress=progress)
+        write_table(out, "gain_calibration", g["gain"])
+        write_json(out, "gain_estimate", g["estimate"])
+        est = g["estimate"]["gain_sd"]
+        _log(f"estimated gain_sd = {est:.4f} (raw {g['estimate']['gain_sd_raw']:.4f})")
+        for r in g["gain"]:
+            if r["at_estimated_gain"] and r["phenotype"] == MARGIN:
+                _log(f"N5 {r['spec']} at the estimated gain: Lambda={r['mean']:.4f}, "
+                     f"share of excess={r['share_of_excess']:.3f}")
+
+    if "resplit" in parts:
+        if getattr(args, "synthetic", False):
+            _log("resplit needs reduced runs on disk; skipped on a synthetic population")
+        else:
+            def rebuild(split_seed):
+                return build_population(args.runs, TRAITS, n_runs=args.n_runs,
+                                        split_seed=split_seed)[0]
+            seeds = range(args.split_seed0, args.split_seed0 + args.n_splits)
+            rows = run_resplit(rebuild, seeds, n_boot=args.n_boot, seed=args.seed,
+                               progress=progress)
+            write_table(out, "resplit", rows)
+            for p in (MARGIN, ACCURACY):
+                lam = [r["Lambda"] for r in rows if r["phenotype"] == p]
+                neg = [r["negative_diagonals"] for r in rows if r["phenotype"] == p]
+                _log(f"resplit {p}: Lambda {np.nanmin(lam):.4f} to {np.nanmax(lam):.4f} "
+                     f"over {len(lam)} splits, negative diagonals in "
+                     f"{sum(1 for n in neg if n > 0)} of them")
+
+    if "loo" in parts:
+        rows = run_leave_one_out(pop, recipes=source.get("recipes"),
+                                 sizes=source.get("sizes"), n_boot=args.n_boot,
+                                 seed=args.seed)
+        write_table(out, "leave_one_out", rows)
+        for kind in ("drop_recipe", "drop_size", "only_size"):
+            lam = [r["Lambda"] for r in rows
+                   if r["kind"] == kind and r["phenotype"] == MARGIN]
+            _log(f"{kind} margin: Lambda {np.nanmin(lam):.4f} to {np.nanmax(lam):.4f}")
+    write_json(out, "sensitivity_source", source)
+    _log(f"tables written to {out}")
+    return 0
+
+
 def cmd_selftest(args):
     """End to end with no network: recover a known ``Lambda``, then run every stage.
 
@@ -361,6 +420,28 @@ def build_parser():
     m.add_argument("--device", default=None)
     m.add_argument("--quiet", action="store_true")
     m.set_defaults(func=cmd_arm2)
+
+    v = sub.add_parser("sensitivity",
+                       help="E5: gain calibration, re-splits and leave-one-out")
+    v.add_argument("--runs", default="runs")
+    v.add_argument("--out", default="results")
+    v.add_argument("--n-runs", type=int, default=3)
+    v.add_argument("--part", nargs="*", choices=["gain", "resplit", "loo"],
+                   default=None, help="which checks to run; all by default")
+    v.add_argument("--gain-grid", nargs="*", type=float, default=list(GAIN_GRID))
+    v.add_argument("--n-rep", type=int, default=500)
+    v.add_argument("--n-splits", type=int, default=50)
+    v.add_argument("--split-seed0", type=int, default=1)
+    v.add_argument("--n-boot", type=int, default=4999)
+    v.add_argument("--seed", type=int, default=0)
+    v.add_argument("--synthetic", action="store_true")
+    v.add_argument("--rbar", type=float, default=0.2)
+    v.add_argument("--n-config", type=int, default=85)
+    v.add_argument("--gain-sd", type=float, default=0.0)
+    v.add_argument("--offset-sd", type=float, default=0.0)
+    v.add_argument("--fast", action="store_true")
+    v.add_argument("--quiet", action="store_true")
+    v.set_defaults(func=cmd_sensitivity)
 
     s = sub.add_parser("selftest", help="offline end-to-end check of the install")
     s.add_argument("--out", default="selftest")
