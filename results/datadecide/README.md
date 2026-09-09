@@ -7,7 +7,10 @@ The registered run took 21503 seconds on one Kaggle core, of which the nulls
 account for all but about twenty seconds. A `--skip-nulls` rerun reproduced
 every shared table byte for byte, and an earlier run that crashed in the
 bake-off before commit 3d7ad3c reproduced the primary and null tables byte for
-byte as well.
+byte as well. The 375 reduced runs (48 MB of `.npz`, one per run) are kept
+outside the repository as the private Kaggle dataset
+`garyzhang11111/seed-noise-reduced-runs`, alongside the source dataset
+`garyzhang11111/seed-noise-src` the kernels install from.
 
 `tab_gates.csv` holds the seven gates the pipeline can evaluate on this data.
 G3 fails because winogrande has a negative cross-half diagonal, G7 fails because
