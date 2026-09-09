@@ -161,6 +161,15 @@ release on CPU, one that runs the whole analysis on the reduced runs, and one th
 scores arm 2 on T4 x2. They install the package from this repository and write
 their outputs to `/kaggle/working`.
 
+## Slurm
+
+`slurm/` holds sbatch scripts for the SCU cluster (Slurm, `scu-cpu` and
+`scu-gpu` partitions, Lustre scratch under `/athena/accardilab/scratch`), with
+the same split as the notebooks: a CPU array that fetches and reduces the
+release, the registered analysis, the E5 sensitivity checks, a 27-task GPU array
+for arm 2 and the G6 analysis on top of it. `bash slurm/pipeline.sh` submits the
+lot with dependencies; `slurm/README.md` explains the resource choices.
+
 ## Layout
 
     src/seednoise/

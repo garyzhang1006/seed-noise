@@ -125,6 +125,15 @@ def cmd_external(args):
     return 0
 
 
+def _arm2_manifest_name(sizes, seeds) -> str:
+    """One manifest per invocation, so array jobs that each score one (size, seed)
+    pair into a shared directory do not overwrite each other's record."""
+    sizes, seeds = list(sizes), [int(s) for s in seeds]
+    if sizes == list(PP_SIZES) and seeds == list(PP_SEEDS):
+        return "arm2_manifest"
+    return "arm2_manifest__" + "-".join(sizes) + "__seed-" + "-".join(map(str, seeds))
+
+
 def cmd_arm2(args):
     """Score the PolyPythias replicate seeds; the only stage that needs a GPU."""
     from seednoise.data.polypythias import run_arm2
@@ -133,7 +142,7 @@ def cmd_arm2(args):
                    n_per_task=args.n_per_task, revision=args.revision,
                    max_tokens=args.max_tokens, tasks=args.tasks,
                    device=args.device, progress=None if args.quiet else 20)
-    write_json(args.out, "arm2_manifest", res["runs"])
+    write_json(args.out, _arm2_manifest_name(args.sizes, args.seeds), res["runs"])
     _log(f"{len(res['runs'])} runs over {res['n_items']} items written to {args.out}")
     return 0
 

@@ -244,3 +244,12 @@ def test_the_arm_two_parser_defaults_to_the_released_seeds():
     assert a.sizes == ["70m", "160m", "410m"]
     assert a.seeds == [str(s) for s in range(1, 10)]
     assert a.revision == "step143000" and a.max_tokens == 30_000
+
+
+def test_arm2_manifest_names_are_distinct_per_subset():
+    from seednoise.cli import _arm2_manifest_name
+    from seednoise.data.polypythias import SEEDS, SIZES
+    assert _arm2_manifest_name(SIZES, [str(s) for s in SEEDS]) == "arm2_manifest"
+    a = _arm2_manifest_name(["70m"], ["1"])
+    b = _arm2_manifest_name(["70m"], ["2"])
+    assert a != b and a == "arm2_manifest__70m__seed-1"
