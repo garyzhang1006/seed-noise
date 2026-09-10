@@ -12,6 +12,10 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 ARM2=1; [ "${1:-}" = "--no-arm2" ] && ARM2=0
 
+# The #SBATCH --output paths are fixed at the default root; Slurm refuses a job
+# whose output directory does not exist, so make it before the first submit.
+mkdir -p "/athena/accardilab/scratch/$USER/seed-noise/logs"
+
 jid() { sbatch --parsable "$@" | cut -d';' -f1; }
 
 FETCH=$(jid slurm/fetch.sbatch);                                    echo "fetch        $FETCH"

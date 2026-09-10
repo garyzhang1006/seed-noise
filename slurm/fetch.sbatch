@@ -7,8 +7,11 @@
 # per-run .npz arrays under $SEEDNOISE_ROOT/runs, and lets the tarball die with the
 # job.  Peak scratch use is therefore the 48 MB of reduced runs, not the 122 GB
 # release.  25 tasks at 25 concurrent is far under the 250-running-jobs cap.
-# If the compute nodes cannot reach GitHub, run the same loop on a login node:
-#   nohup seednoise fetch --tmp /tmp/$USER-tars --out $SEEDNOISE_ROOT/runs &
+# The tarballs come from huggingface.co over plain HTTPS (urllib, not the hub
+# library), so HF_HUB_OFFLINE=1 from env.sh does not affect this job.  The
+# compute nodes do have outbound network (the first run reached the hub from
+# them); the login nodes cannot run the package at all, so there is no
+# login-node fallback.
 #SBATCH --job-name=sn-fetch
 #SBATCH --partition=scu-cpu
 #SBATCH --array=0-24%25

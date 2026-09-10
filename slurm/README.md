@@ -4,7 +4,11 @@ The Kaggle notebooks and kernels split the work by session; these scripts split
 it by job and let Slurm hold the dependencies. Everything is submitted from the
 repository root on a login node, and every job writes under
 `/athena/accardilab/scratch/$USER/seed-noise` (override with `SEEDNOISE_ROOT`),
-which is the Lustre scratch that both login and compute nodes mount.
+which is the Lustre scratch that both login and compute nodes mount. The
+`#SBATCH --output` lines are fixed at that default path, so with a different
+`SEEDNOISE_ROOT` the logs still land under the default one; `pipeline.sh`
+creates that directory before submitting because Slurm fails a job whose output
+directory is missing.
 
 ```bash
 bash slurm/setup.sh        # once: virtualenv on scratch, install, offline self-test
@@ -95,10 +99,11 @@ to 1, and `arm2.sbatch` refuses to start when the cache directory is absent. The
 array is also throttled to nine running tasks so 27 model loads do not hit the
 Lustre scratch at once. If the compute nodes have no outbound network the prefetch
 job fails at its first download; then fill the cache from any machine with
-network and a python at least 3.9, using the same `HF_HOME`. For the release
-itself, run the sequential fetch on the login node as the comment in
-`fetch.sbatch` shows; the tarballs are deleted as they are reduced, so peak use
-is one tarball.
+network and a python at least 3.9, using the same `HF_HOME`. The DataDecide
+tarballs that `fetch.sbatch` pulls come from huggingface.co over plain HTTPS
+rather than through the hub library, so the offline flag does not touch them,
+and each is deleted from `$TMPDIR` once reduced, so peak use is one tarball per
+task.
 
 ## Resuming and reading the output
 

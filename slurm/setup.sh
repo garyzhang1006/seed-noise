@@ -28,7 +28,7 @@ if [ -z "${SLURM_JOB_ID:-}" ] && ! py_ok python3; then
         exit 1
     fi
     echo "python3 on this node is $(python3 --version 2>&1); building the venv inside an scu-cpu job"
-    exec srun --partition=scu-cpu --cpus-per-task=2 --mem=8000M --time=01:00:00 \
+    exec srun --partition=scu-cpu --cpus-per-task=2 --mem=16000M --time=02:00:00 \
         --job-name=sn-setup --export=ALL bash "$REPO/slurm/setup.sh"
 fi
 py_ok python3 || { echo "python3 is $(python3 --version 2>&1) even on the compute node; load a python >= 3.9 module" >&2; exit 1; }
