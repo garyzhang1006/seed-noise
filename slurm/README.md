@@ -91,6 +91,10 @@ been run on them; `sbatch --gres=gpu:1 slurm/arm2.sbatch` overrides the pin if
 you want to find out, and `--max-tokens 15000` on the `seednoise arm2` line halves
 the logits if it still fails.
 
+A hub token is optional (every repo read is public) but raises the anonymous
+rate limit: write a read token to `slurm/hf_token` (gitignored, `chmod 600`),
+which `env.sh` exports as `HF_TOKEN`, or to `$HF_HOME/token`.
+
 The same run drew HTTP 429 from the hub API when 27 tasks started together, each
 resolving its checkpoint. So the hub is now touched exactly once: `prefetch.sbatch`
 downloads the 27 checkpoints at the registered revision and the evaluation

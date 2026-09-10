@@ -18,6 +18,16 @@ export HF_HOME="${HF_HOME:-/athena/accardilab/scratch/$USER/hf}"
 # prefetch.sbatch overrides this to 0 for itself.
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export HF_DATASETS_OFFLINE="${HF_HUB_OFFLINE}"
+# Optional hub token, which raises the anonymous rate limit that produced the
+# 429s.  Every repo the pipeline reads is public, so it is not required.  Put a
+# read token in slurm/hf_token (gitignored, chmod 600) or in $HF_HOME/token,
+# which the hub library reads on its own.
+_SN_TOKEN="$(dirname "${BASH_SOURCE[0]}")/hf_token"
+if [ -z "${HF_TOKEN:-}" ] && [ -f "$_SN_TOKEN" ]; then
+    HF_TOKEN="$(tr -d '[:space:]' < "$_SN_TOKEN")"
+    export HF_TOKEN
+fi
+unset _SN_TOKEN
 
 # numpy's BLAS otherwise spawns a thread per core on a 128-core node.
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"

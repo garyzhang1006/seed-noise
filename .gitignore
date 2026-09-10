@@ -18,3 +18,5 @@ data/interim/
 *.parquet
 .DS_Store
 .ipynb_checkpoints/
+# Hugging Face read token for the Slurm jobs; never committed
+slurm/hf_token
