@@ -232,3 +232,52 @@ def test_batching_does_not_change_a_score():
     wide = score_items(items, _stub_model(), _Tok(), max_tokens=100_000)[3]
     narrow = score_items(items, _stub_model(), _Tok(), max_tokens=60)[3]
     assert np.allclose(wide, narrow, rtol=1e-6)
+
+
+def test_the_per_row_logsumexp_matches_a_full_log_softmax():
+    """The scorer no longer materialises log_softmax over the vocabulary, so
+    check the per-row form against the reference on logits that vary by row,
+    position and token rather than the stub's constant ones."""
+    torch = pytest.importorskip("torch")
+    tok = _Tok()
+    rows = [{"question": f"question number {i} here", "choices": {
+        "text": ["alpha beta", "gamma", "delta epsilon zeta", "eta"],
+        "label": ["A", "B", "C", "D"]}, "answerKey": "B"} for i in range(5)]
+    items = build_items("arc_easy", n_per_task=5, rows=rows)
+    V = 64
+
+    class M(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.w = torch.nn.Parameter(torch.zeros(1))
+
+        def forward(self, input_ids, attention_mask=None):
+            g = torch.Generator().manual_seed(int(input_ids.sum()))
+            logits = torch.randn(*input_ids.shape, V, generator=g) * 3
+            return type("O", (), {"logits": logits})()
+
+    model = M().eval()
+    _, _, _, score, _ = score_items(items, model, tok, max_tokens=4000)
+
+    # Reference: the old full log_softmax, one sequence at a time.
+    want = []
+    for it in items:
+        for ctx, cont in zip(it.contexts, it.continuations):
+            c, k = tok(ctx)["input_ids"], tok(cont)["input_ids"]
+            ids = torch.tensor([c + k])
+            want.append((ids, len(c), len(k), len(cont.encode("utf-8"))))
+    # Recompute through the same padded batches the scorer used.
+    lengths = [ids.shape[1] for ids, *_ in want]
+    ref = np.zeros(len(want))
+    for batch in batch_by_tokens(lengths, max_tokens=4000):
+        width = max(lengths[i] for i in batch)
+        padded = torch.zeros(len(batch), width, dtype=torch.int64)
+        for r, i in enumerate(batch):
+            padded[r, : lengths[i]] = want[i][0][0]
+        logits = model(padded).logits
+        lp = torch.log_softmax(logits[:, :-1].float(), dim=-1)
+        g = lp.gather(2, padded[:, 1:, None])[..., 0]
+        for r, i in enumerate(batch):
+            _, lc, lk, nb = want[i]
+            ref[i] = float(g[r, lc - 1: lc - 1 + lk].sum()) / nb
+    assert score == pytest.approx(ref, rel=1e-5)

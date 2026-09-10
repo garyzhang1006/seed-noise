@@ -3,9 +3,10 @@ r"""Cluster-aware intervals for a ratio of sums, which is what ``Lambda`` is.
 The unit of analysis is the configuration, but configurations sharing a data
 recipe are not independent, so every interval is clustered on the recipe.  With
 17 estimation recipes the asymptotics are thin, which is why the pre-registered
-interval is a wild cluster bootstrap-t with ``t(16)`` critical values rather than
-a normal approximation, and why a plain configuration bootstrap is reported
-beside it rather than instead of it.
+interval is a wild cluster bootstrap-t with ``t(G-1)`` critical values (``t(16)``
+as registered, ``t(24)`` on the 25 recipes the release was actually run on)
+rather than a normal approximation, and why a plain configuration bootstrap is
+reported beside it rather than instead of it.
 
 Intervals are formed on ``theta = sum_c T_c / sum_c U_c`` and then square-rooted.
 Because the square root is monotone, transforming the endpoints is exact, which a

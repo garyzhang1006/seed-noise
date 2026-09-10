@@ -8,8 +8,21 @@ which is the Lustre scratch that both login and compute nodes mount.
 
 ```bash
 bash slurm/setup.sh        # once: virtualenv on scratch, install, offline self-test
-bash slurm/pipeline.sh     # submits fetch -> analyze + sensitivity, arm2 -> g6
+bash slurm/pipeline.sh     # fetch -> analyze, splitsweep, sensitivity -> merge;
+                           # prefetch -> arm2 -> g6
 ```
+
+## Python on the login nodes
+
+The login nodes run CentOS 7 with `/usr/bin/python3` at 3.6.8, which cannot
+compile this package (it needs 3.9), and no newer python module is loaded by
+default. The compute nodes' `/usr/bin/python3` is 3.9.21. So `setup.sh` checks
+the python it finds and, when it is too old, re-executes itself under
+`srun --partition=scu-cpu` and builds the venv there; `env.sh` refuses to run a
+venv whose python is older than 3.9 with a message that says so. Nothing that
+imports the package runs on a login node: the prefetch, the merge and the split
+sweep are all jobs, and `merge_sensitivity.py` is kept free of 3.7+ syntax so it
+would survive being run under the login python by hand.
 
 ## What the cluster looks like, and how the scripts follow it
 
@@ -46,30 +59,46 @@ against. Apptainer is likewise unused because a virtualenv on scratch is enough.
 |---|---|---|---|
 | `fetch.sbatch` | scu-cpu, array 0-24 | 2 cpu, 8000M, 6 h | one recipe per task, tarball in `$TMPDIR`, runs to `runs/` |
 | `analyze.sbatch` | scu-cpu | 1 cpu, 16000M, 18 h | the registered `analyze` and `external`, to `results/` |
+| `splitsweep.sbatch` | scu-cpu | 1 cpu, 8000M, 1 h | every 17-of-25 estimation subset, `tab_splitsweep.csv` to `results/` |
 | `sensitivity.sbatch` | scu-cpu, array 0-3 | 1 cpu, 16000M, 4 h | the E5 gain grid in three parts plus re-splits and leave-one-out |
-| `arm2.sbatch` | scu-gpu, array 0-26 | 1 gpu, 4 cpu, 32000M, 3 h | one PolyPythias (size, seed) pair per task, to `runs-arm2/` |
+| `merge.sbatch` | scu-cpu | 1 cpu, 2000M, 10 min | `merge_sensitivity.py`, the four parts into `results/` |
+| `prefetch.sbatch` | scu-cpu | 2 cpu, 8000M, 4 h | the 27 checkpoints and the datasets into `HF_HOME`, once |
+| `arm2.sbatch` | scu-gpu, array 0-26%9 | 1 l40s, 4 cpu, 32000M, 3 h | one PolyPythias (size, seed) pair per task, to `runs-arm2/` |
 | `g6.sbatch` | scu-cpu | 1 cpu, 16000M, 18 h | `analyze` with `--arm2-runs`, to `results-g6/` |
 
 `pipeline.sh` submits them with `--dependency=afterok` in that order and prints
-the job ids; `pipeline.sh --no-arm2` leaves out the GPU arm. After the
-sensitivity array finishes, `python slurm/merge_sensitivity.py` concatenates the
-three gain parts into `results/tab_gain_calibration.csv` and copies the rest.
+the job ids; `pipeline.sh --no-arm2` leaves out prefetch, arm 2 and G6.
 
 The analysis is single-threaded and the nulls dominate its 21503 s on a Kaggle
-core, so it asks for one core; the GPU jobs are independent single-device runs
-with no collective traffic, so the PCIe-only interconnect does not enter. Any
-GPU type on the cluster holds a 410M model with the registered 30000-token batches;
-add `--gres=gpu:l40s:1` on the `sbatch` line to insist on one.
+core, so it asks for one core; the first cluster run took about 5 h 50 min wall
+for the whole pipeline, 35.6 CPU-hours and 1.1 GPU-hours. The GPU jobs are
+independent single-device runs with no collective traffic, so the PCIe-only
+interconnect does not enter.
 
-## When the compute nodes have no outbound network
+## The GPU type and the hub
 
-`fetch` downloads from GitHub and `arm2` from the Hugging Face hub. If the
-compute nodes cannot reach either, run `bash slurm/prefetch.sh` on a login node
-first (it fills `HF_HOME` with the 27 checkpoints at the registered revision and
-the evaluation datasets), then submit arm 2 with `HF_HUB_OFFLINE=1` exported so a
-missing file fails at once rather than hanging. For the release itself, run the
-sequential fetch on the login node as the comment in `fetch.sbatch` shows; the
-tarballs are deleted as they are reduced, so peak use is one tarball.
+The first run killed the 410M tasks with an out-of-memory on the 22 GB Quadro
+RTX 6000 cards. The cause was the scorer's float32 `log_softmax` over the full
+vocabulary, about 12 GB of temporaries at the registered 30000-token batches;
+the l40s (48 GB) ran them. `arm2.sbatch` therefore pins `--gres=gpu:l40s:1`.
+The scorer has since been changed to gather the gold-token logit and take the
+logsumexp one row at a time, which should fit the 22 GB cards, but that has not
+been run on them; `sbatch --gres=gpu:1 slurm/arm2.sbatch` overrides the pin if
+you want to find out, and `--max-tokens 15000` on the `seednoise arm2` line halves
+the logits if it still fails.
+
+The same run drew HTTP 429 from the hub API when 27 tasks started together, each
+resolving its checkpoint. So the hub is now touched exactly once: `prefetch.sbatch`
+downloads the 27 checkpoints at the registered revision and the evaluation
+datasets into `HF_HOME` from a compute node, `env.sh` defaults `HF_HUB_OFFLINE`
+to 1, and `arm2.sbatch` refuses to start when the cache directory is absent. The
+array is also throttled to nine running tasks so 27 model loads do not hit the
+Lustre scratch at once. If the compute nodes have no outbound network the prefetch
+job fails at its first download; then fill the cache from any machine with
+network and a python at least 3.9, using the same `HF_HOME`. For the release
+itself, run the sequential fetch on the login node as the comment in
+`fetch.sbatch` shows; the tarballs are deleted as they are reduced, so peak use
+is one tarball.
 
 ## Resuming and reading the output
 

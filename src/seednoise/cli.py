@@ -270,6 +270,34 @@ def cmd_sensitivity(args):
     return 0
 
 
+def cmd_splitsweep(args):
+    pop, source = _population(args)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    from seednoise.experiments import run_splitsweep
+    from seednoise.experiments.e6_splitsweep import REGISTERED_THRESHOLDS
+    thr = dict(REGISTERED_THRESHOLDS)
+    if args.threshold_margin is not None:
+        thr[MARGIN] = args.threshold_margin
+    if args.threshold_accuracy is not None:
+        thr[ACCURACY] = args.threshold_accuracy
+    _log(f"N={pop.N} recipes={pop.n_clusters}; sweeping every "
+         f"{args.n_estimation}-recipe estimation subset")
+    t0 = time.time()
+    e6 = run_splitsweep(pop, recipe_names=source.get("recipes"),
+                        n_estimation=args.n_estimation, thresholds=thr)
+    write_table(out, "splitsweep", e6["splitsweep"])
+    write_table(out, "splitsweep_recipes", e6["recipes"])
+    write_json(out, "splitsweep_source", {**e6["source"], "population": source})
+    for r in e6["splitsweep"]:
+        _log(f"Lambda[{r['phenotype']}] over {r['n_subsets']} subsets: "
+             f"min {r['min']:.4f}, median {r['q50']:.4f}, max {r['max']:.4f}; "
+             f"all recipes {r['Lambda_all_recipes']:.4f}; share above "
+             f"{r['threshold']:.3f}: {r['share_above_threshold']:.4f}")
+    _log(f"done in {time.time() - t0:.0f} s; tables written to {out}")
+    return 0
+
+
 def cmd_selftest(args):
     """End to end with no network: recover a known ``Lambda``, then run every stage.
 
@@ -454,6 +482,27 @@ def build_parser():
     v.add_argument("--fast", action="store_true")
     v.add_argument("--quiet", action="store_true")
     v.set_defaults(func=cmd_sensitivity)
+
+    w = sub.add_parser("splitsweep",
+                       help="E6: Lambda under every estimation-recipe subset")
+    w.add_argument("--runs", default="runs")
+    w.add_argument("--out", default="results")
+    w.add_argument("--n-runs", type=int, default=3)
+    w.add_argument("--n-estimation", type=int, default=17,
+                   help="recipes per estimation subset (the registration's 17)")
+    w.add_argument("--threshold-margin", type=float, default=None,
+                   help="registered margin prediction in Lambda units (1.349)")
+    w.add_argument("--threshold-accuracy", type=float, default=None,
+                   help="registered accuracy prediction in Lambda units (1.40)")
+    w.add_argument("--synthetic", action="store_true")
+    w.add_argument("--rbar", type=float, default=0.2)
+    w.add_argument("--n-config", type=int, default=85)
+    w.add_argument("--seed", type=int, default=0)
+    w.add_argument("--gain-sd", type=float, default=0.0)
+    w.add_argument("--offset-sd", type=float, default=0.0)
+    w.add_argument("--fast", action="store_true")
+    w.add_argument("--quiet", action="store_true")
+    w.set_defaults(func=cmd_splitsweep)
 
     s = sub.add_parser("selftest", help="offline end-to-end check of the install")
     s.add_argument("--out", default="selftest")

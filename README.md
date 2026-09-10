@@ -47,9 +47,38 @@ sharpness is handled by mediation on a leave-one-trait-out competence proxy and 
 the run's mean per-byte log-likelihood, one pooled slope per trait.
 
 Inference treats the configuration as the unit and the recipe as the cluster: a
-wild cluster bootstrap-t over 17 recipes with `t(16)` critical values, a
-configuration bootstrap beside it, and `DEFF = 1 + 4 rho_ICC` reported so the
+wild cluster bootstrap-t over the recipes with `t(G-1)` critical values, where
+`G` is the number of recipes in the population (25 on the release, so `t(24)`),
+a configuration bootstrap beside it, and `DEFF = 1 + 4 rho_ICC` reported so the
 effective sample size is visible.
+
+## Where the code departs from the registration
+
+The registration described eight screening recipes that would carry every design
+decision and 17 estimation recipes, 85 configurations, opened only once the gates
+had fired, with the partition fixed in a hashed plan. None of that exists in the
+code. Nothing draws the partition, no plan or hash was ever written, and every
+table under `results/datadecide` runs the gates and the headline on all 25
+recipes and 125 configurations; `tab_gates.csv` records `estimation_configs` as
+125 for that reason. The paper's text has to say so.
+
+What can be recovered is the range the headline would have taken. Each
+configuration's `T_c` and `U_c` do not depend on which other configurations are
+in the population, so `Lambda` on any recipe subset is a ratio of two sums and
+all C(25, 17) = 1081575 estimation subsets can be enumerated in under a second
+once the population is built:
+
+```bash
+seednoise splitsweep --runs runs --out results
+```
+
+writes `tab_splitsweep.csv` (minimum, quantiles, maximum, the share of subsets
+above the registered predictions of 1.349 on the margin and 1.40 on accuracy,
+and the value the `split_seed` would have drawn had a seeded partition been
+implemented), `tab_splitsweep_recipes.csv` (per-recipe `T` and `U`, from which
+any subset can be recomputed by hand) and `splitsweep_source.json`. Every number
+in those files is post hoc and labelled as such; the seeded partition in
+particular is a reconstruction of a rule the registration never spelled out.
 
 ## Install
 
@@ -154,6 +183,13 @@ Passing `--arm2-runs` adds gate G6, which asks whether the excess `Lambda - 1`
 transports to within a fifth. The subsample is nested rather than merely random, so
 a 200-item pilot is a strict subset of the 500-item run and the two are comparable.
 
+The scorer gathers the gold-token logit and takes the logsumexp one sequence at
+a time at the continuation positions only; an earlier version took a float32
+`log_softmax` over the full vocabulary for the whole batch, which at 30000
+tokens on the 50k Pythia vocabulary put about 12 GB of temporaries on top of the
+model and ran the 410M checkpoints out of memory on 22 GB cards. Lower
+`--max-tokens` if a card still fills.
+
 ## Notebooks
 
 `notebooks/` holds three Kaggle notebooks: one that fetches and reduces the
@@ -166,9 +202,12 @@ their outputs to `/kaggle/working`.
 `slurm/` holds sbatch scripts for the SCU cluster (Slurm, `scu-cpu` and
 `scu-gpu` partitions, Lustre scratch under `/athena/accardilab/scratch`), with
 the same split as the notebooks: a CPU array that fetches and reduces the
-release, the registered analysis, the E5 sensitivity checks, a 27-task GPU array
-for arm 2 and the G6 analysis on top of it. `bash slurm/pipeline.sh` submits the
-lot with dependencies; `slurm/README.md` explains the resource choices.
+release, the registered analysis, the split sweep, the E5 sensitivity checks and
+their merge, a prefetch of the Hugging Face cache, a 27-task GPU array for arm 2
+and the G6 analysis on top of it. `bash slurm/pipeline.sh` submits the lot with
+dependencies; `slurm/README.md` explains the resource choices and the two traps
+the first run hit (a 3.6 python on the login nodes, and 27 tasks hitting the hub
+at once).
 
 ## Layout
 
@@ -187,7 +226,7 @@ lot with dependencies; `slurm/README.md` explains the resource choices.
       build.py         reduced runs to a Population
       store.py         float16 margins and bit-packed accuracy on disk
       data/            DataDecide, PolyPythias and signal-and-noise readers
-      experiments/     E1 to E4, which produce the tables
+      experiments/     E1 to E6, which produce the tables
 
 ## Data
 

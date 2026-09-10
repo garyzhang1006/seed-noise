@@ -5,7 +5,7 @@
 #   sbatch slurm/sensitivity.sbatch
 #   sbatch --dependency=afterok:<fetch array job id> slurm/sensitivity.sbatch
 #
-# Then merge the gain tables:  python slurm/merge_sensitivity.py
+# Then merge the parts:  sbatch --dependency=afterok:<this array id> slurm/merge.sbatch
 # Each gain task is about 2000 simulated populations at 1.3 s each on a Kaggle core.
 #SBATCH --job-name=sn-sens
 #SBATCH --partition=scu-cpu

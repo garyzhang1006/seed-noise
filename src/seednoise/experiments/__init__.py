@@ -7,6 +7,8 @@ from seednoise.experiments.e4_bakeoff import run_bakeoff
 from seednoise.experiments.e5_sensitivity import (
     run_gain_calibration, run_leave_one_out, run_resplit,
 )
+from seednoise.experiments.e6_splitsweep import run_splitsweep
 
 __all__ = ["run_screen", "run_primary", "run_nulls", "run_bakeoff",
-           "run_gain_calibration", "run_resplit", "run_leave_one_out"]
+           "run_gain_calibration", "run_resplit", "run_leave_one_out",
+           "run_splitsweep"]

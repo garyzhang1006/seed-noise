@@ -38,7 +38,13 @@ class Gate:
 
 def g0_coverage(n_cells_parsed: int, n_cells_expected: int = 125,
                 n_estimation: int = 85, min_estimation: int = 70) -> Gate:
-    """Per-item outputs stream and parse for every cell at the common step."""
+    """Per-item outputs stream and parse for every cell at the common step.
+
+    The default ``n_estimation`` of 85 is the registration's 17-recipe
+    estimation set.  The pipeline never held out the eight screening recipes,
+    so ``seednoise analyze`` passes the whole population (125) and the
+    ``estimation_configs`` field in ``tab_gates.csv`` records that.
+    """
     g = Gate("G0", "per-item outputs parse for all 125 cells at the common step",
              "drop the cell; below 70 estimation configurations, report at reduced N")
     g.measured = {"cells_parsed": int(n_cells_parsed),

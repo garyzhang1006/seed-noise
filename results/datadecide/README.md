@@ -12,12 +12,30 @@ outside the repository as the private Kaggle dataset
 `garyzhang11111/seed-noise-reduced-runs`, alongside the source dataset
 `garyzhang11111/seed-noise-src` the kernels install from.
 
+## Deviation from the registration
+
+The registered design held eight screening recipes out of the headline and
+computed it on the 17 estimation recipes, 85 configurations, with the partition
+fixed in advance. That partition was never implemented: every table here uses
+all 25 recipes and 125 configurations, `tab_gates.csv` reports
+`estimation_configs` as 125, and the wild cluster bootstrap uses `t(24)` rather
+than the registered `t(16)`. There is no frozen plan or hash to fall back on.
+`seednoise splitsweep` enumerates every 17-recipe subset from the same reduced
+runs and writes `tab_splitsweep.csv`; it is not part of the registered run and
+its tables are not in this directory. On the SCU cluster the same enumeration
+put the largest 17-recipe margin Lambda at 1.3165 and the largest accuracy
+Lambda at 1.1914, both under the registered predictions of 1.349 and 1.40, so
+no admissible estimation set would have met them.
+
 `tab_gates.csv` holds the seven gates the pipeline can evaluate on this data.
 G3 fails because winogrande has a negative cross-half diagonal, G7 fails because
 DataDecide carries no held-out-loss field, and G5 fails because the N5 gain
 artefact at gain_sd 0.05 manufactures 0.148 of the observed 0.244 excess on the
 margin, a share of 0.61 against the registered ceiling of 0.5. G6 needs the
-second arm and is not evaluated here.
+second arm and is not evaluated here; the cluster run with `--arm2-runs` found
+it failing in the other direction, a PolyPythias margin Lambda of 1.406 against
+1.244 here (excess ratio 1.66, outside the registered fifth), and those tables
+live in the cluster's `results-g6/`, not in this directory.
 
 ## Sensitivity (E5)
 

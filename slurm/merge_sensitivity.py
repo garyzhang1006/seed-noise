@@ -1,15 +1,17 @@
 """Merge the four sensitivity parts into one results directory.
 
-Run after the sn-sens array has finished::
+Runs as the sn-merge job that pipeline.sh queues behind the sn-sens array, or by
+hand from inside any job or srun shell with the venv active::
 
     python slurm/merge_sensitivity.py [--root /athena/accardilab/scratch/$USER/seed-noise]
+
+It uses only the standard library, so it also runs under the login nodes' 3.6
+python, which is why it carries no ``from __future__`` import and no 3.7+ syntax.
 
 The three gain parts are concatenated into one ``tab_gain_calibration.csv`` sorted
 by spec, phenotype and gain; the estimate, the re-split and leave-one-out tables
 and the source manifest are copied as they are.
 """
-from __future__ import annotations
-
 import argparse
 import csv
 import os

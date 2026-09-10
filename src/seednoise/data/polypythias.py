@@ -339,14 +339,21 @@ def score_items(items, model, tokenizer, max_tokens: int = 30_000,
         with torch.no_grad():
             logits = model(input_ids=t_ids,
                            attention_mask=torch.from_numpy(mask).to(device)).logits
-            logprobs = torch.log_softmax(logits[:, :-1].float(), dim=-1)
-            gathered = logprobs.gather(2, t_ids[:, 1:, None])[..., 0]
-        g = gathered.to("cpu").numpy()
-        for r, i in enumerate(batch):
-            c, k = seqs[i]
-            # Position t of `gathered` scores token t+1, so the continuation's
-            # first token sits at index len(c) - 1.
-            total[i] = float(g[r, len(c) - 1: len(c) - 1 + len(k)].sum())
+            # log p(token) = logit(token) - logsumexp(logits), taken only at the
+            # continuation positions.  A full log_softmax in float32 over the
+            # vocabulary costs two (rows x width x vocab) tensors on top of the
+            # half-precision logits, about 12 GB at 30000 tokens on a 50k
+            # vocabulary, which is what tipped a 22 GB card over.  Slicing per
+            # row first keeps the float32 work at (continuation x vocab).
+            for r, i in enumerate(batch):
+                c, k = seqs[i]
+                # Position t of the logits scores token t+1, so the continuation's
+                # first token is predicted at index len(c) - 1.
+                lo, hi = len(c) - 1, len(c) - 1 + len(k)
+                row = logits[r, lo:hi].float()                    # (len(k), V)
+                tgt = t_ids[r, lo + 1: hi + 1]                     # (len(k),)
+                gold = row.gather(1, tgt[:, None])[:, 0]
+                total[i] = float((gold - torch.logsumexp(row, dim=-1)).sum())
         if progress and b % progress == 0:
             print(f"  batch {b + 1}/{len(batches)}", flush=True)
 
